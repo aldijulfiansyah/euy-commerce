@@ -141,7 +141,7 @@ const Landing = () => {
               {/* <p>{product.description}</p> */}
               <p>{product.price}</p>
               <div className="card-actions justify-end">
-                <button className="btn btn-success ">Add To Cart</button>
+                <button className="btn btn-success text-white ">Add To Cart</button>
               </div>
             </div>
           </div>
