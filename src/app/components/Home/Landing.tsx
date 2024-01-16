@@ -3,7 +3,7 @@
 import Image from "next/image";
 import { useEffect, useState } from "react";
 import Skeleton from "../Utils/Skeleton";
-
+import { debounce } from "lodash";
 interface ProductProps {
   id: number;
   title: string;
@@ -18,39 +18,54 @@ const Landing = () => {
   const [selectedCategory, setSelectedCategory] = useState<string | null>(null);
   const [categories, setCategories] = useState<string[]>([]);
   const [products, setProducts] = useState<ProductProps[]>([]);
-  const [loading, setLoading] = useState<boolean>(false);
-  
+  const [loading, setLoading] = useState<boolean>(true);
+  const [categoryError, setErrorCategory] = useState<string | null>(null);
+  const [productError, setErrorProduct] = useState<string | null>(null);
+  const debouncedFetchData = debounce(fetchData, 300);
 
   useEffect(() => {
-    const fetchData = async () => {
-      try {
-        setLoading(true);
-        const categoriesRes = await fetch(`${api_url}/products/categories`);
-        const categoriesData = await categoriesRes.json();
-        setCategories(categoriesData);
-
-        if (selectedCategory) {
-          const productsByCategory = await fetch(
-            `${api_url}/products/category/${selectedCategory}`
-          );
-          const productsData: ProductProps[] = await productsByCategory.json();
-          setProducts(productsData);
-        } else {
-          const allProductsRes = await fetch(`${api_url}/products`);
-          const allProductsData = await allProductsRes.json();
-          setProducts(allProductsData);
-        }
-
-        
-      } catch (error) {
-        console.error("Error fetching data:", (error as Error).message);
-      }finally {
-        setLoading(false);
-      }
-    };
-    fetchData();
+    debouncedFetchData();
   }, [selectedCategory]);
 
+  async function fetchData() {
+    try {
+      setLoading(true);
+      setErrorProduct(null);
+      const url = selectedCategory
+        ? `${api_url}/products/category/${selectedCategory}`
+        : `${api_url}/products`;
+
+      const response = await fetch(url);
+      const data = await response.json();
+
+      setProducts(data);
+    } catch (error:any) {
+      console.error("Error fetching data:", error.message);
+      const apiErrorMessage = "Apologies for any inconvenience. Please note that we are utilizing a public API, and it's possible that the server is currently undergoing maintenance or experiencing high traffic. Feel free to try again later. Thank you for your understanding. 👨‍🔧";
+      setErrorProduct(apiErrorMessage);
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  useEffect(() => {
+    const fetchCategories = async () => {
+      try {
+        setErrorCategory(null)
+        const response = await fetch(`${api_url}/products/categories`);
+        const data = await response.json();
+
+        setCategories(data);
+      } catch (error:any) {
+        console.error("Error fetching categories:", error.message);
+        setErrorCategory('Im so sorry the Server is under maintenance or overloaded 👨‍🔧');
+      }
+    };
+
+    fetchCategories();
+  }, []);
+
+  
   return (
     <>
       <div className="flex justify-center">
@@ -75,7 +90,10 @@ const Landing = () => {
             >
               All
             </button>
-            {categories.map((category, index) => (
+            {
+            // categoryError ?(<div className="error-message">{categoryError}</div>) :
+            
+            categories.map((category, index) => (
               <button
                 className={`btn join-item capitalize ${selectedCategory === category ? "bg-[#D2D2D2] border-[#D2D2D2]" : "" }`}
                 key={index}
@@ -89,7 +107,13 @@ const Landing = () => {
       </div>
 
       <div className="flex flex-wrap justify-center gap-8 text-xs lg:text-base mt-10">
-      {loading
+      {productError ? (
+        <div className=" flex flex-col items-center justify-center px-4 md:px-8 lg:px-24 py-8">
+            <p className="text-6xl md:text-7xl lg:text-9xl font-bold tracking-wider text-green-500">503</p>
+            <p className="text-2xl md:text-3xl lg:text-5xl font-bold tracking-wider text-gray-500 mt-4">Server Error</p>
+            <p className="text-gray-500 mt-8 py-2 border-y-2 text-center">{productError}</p>
+    </div>
+      ): loading
           ? // Render skeleton loading when loading is true
             Array.from({ length: selectedCategory ? products.length : 6  }).map((_, index) => (
               <div key={`skeleton-${index}`} className="">
@@ -108,6 +132,7 @@ const Landing = () => {
                 alt={product.title}
                 width={200}
                 height={80}
+                loading="lazy"
               />
             </figure>
             <div className="card-body ">
